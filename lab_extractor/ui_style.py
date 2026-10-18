@@ -1,0 +1,85 @@
+"""עיצוב הממשק: RTL, גופן, וצבעים.
+
+פלטה: דיו כחול-כהה (טקסט וכותרות), קיר בהיר, טורקיז מעבדתי כצבע פעולה,
+וענבר אחד בלבד - לכל מה שדורש בדיקה אנושית. הענבר הוא האלמנט הבולט בעיצוב.
+"""
+
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap');
+
+:root {
+  --ink: #14213D;
+  --muted: #5B6578;
+  --canvas: #F3F5F8;
+  --surface: #FFFFFF;
+  --line: #DDE2EA;
+  --action: #0F766E;
+  --action-dark: #0B5C56;
+  --amber: #F59E0B;
+  --amber-tint: #FFF4DC;
+  --ok: #15803D;
+}
+
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+  direction: rtl;
+  font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
+  color: var(--ink);
+}
+.stApp { background: var(--canvas); }
+.block-container { max-width: 1280px; padding-top: 2.2rem; padding-bottom: 4rem; }
+[data-testid="stHeader"] { background: transparent; }
+
+h1, h2, h3, h4, p, label, li, [data-testid="stMarkdownContainer"],
+[data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] {
+  text-align: right; font-family: 'Heebo', sans-serif;
+}
+h2, h3 { color: var(--ink); font-weight: 700; letter-spacing: 0; }
+
+/* כותרת ראשית */
+.app-title { font-size: 2.1rem; font-weight: 800; line-height: 1.15; margin: 0; color: var(--ink); }
+.app-sub { color: var(--muted); font-size: 1.02rem; margin: .45rem 0 1.4rem; max-width: 62ch; }
+
+/* מדדים */
+.stats { display: flex; gap: .8rem; flex-wrap: wrap; margin: 0 0 1.4rem; }
+.stat { flex: 1 1 150px; background: var(--surface); border: 1px solid var(--line);
+        border-radius: 10px; padding: .85rem 1.1rem; }
+.stat .n { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.stat .l { color: var(--muted); font-size: .9rem; margin-top: .35rem; }
+.stat.review { border-color: var(--amber); background: var(--amber-tint); }
+.stat.review .n { color: #B45309; }
+.stat.ok .n { color: var(--ok); }
+
+/* אזורי עבודה */
+.panel-title { font-weight: 700; font-size: 1.15rem; margin: 1.6rem 0 .5rem; }
+[data-testid="stFileUploader"] section {
+  background: var(--surface); border: 2px dashed #9AA5B8; border-radius: 12px; padding: 1.2rem;
+}
+[data-testid="stFileUploader"] section:hover { border-color: var(--action); }
+
+/* כפתורים */
+.stButton > button, .stDownloadButton > button {
+  border-radius: 8px; font-weight: 700; font-family: 'Heebo', sans-serif; padding: .5rem 1.2rem;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.stButton > button:hover, .stDownloadButton > button:hover { border-color: var(--action); color: var(--action); }
+.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
+  background: var(--action); color: #fff; border-color: var(--action);
+}
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover {
+  background: var(--action-dark); color: #fff;
+}
+:focus-visible { outline: 3px solid var(--amber) !important; outline-offset: 2px; }
+
+/* טבלה: הגריד מצויר ב-canvas ונשאר LTR, סדר העמודות מתהפך בקוד */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] { direction: ltr; border-radius: 10px; }
+
+/* מקרא */
+.legend { color: var(--muted); font-size: .9rem; margin: .2rem 0 .7rem; }
+.legend .sw { display: inline-block; width: .9rem; height: .9rem; border-radius: 3px;
+              vertical-align: -2px; margin-inline-start: .35rem; }
+.sw.cell { background: #FDBA74; } .sw.row { background: #FFF7E6; border: 1px solid #F3D9A4; }
+
+@media (max-width: 640px) { .app-title { font-size: 1.6rem; } }
+</style>
+"""
