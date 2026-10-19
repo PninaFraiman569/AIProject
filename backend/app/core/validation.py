@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from .config import Settings
 from .entities import EntityList
 from .schemas import (
-    DATA_FIELDS, FIELD_LABELS, MODEL_FIELD_ALIASES, STATUS_PENDING,
+    DATA_FIELDS, FIELD_LABELS, LIST_FIELDS, LIST_SEPARATOR, STATUS_PENDING,
     STATUS_REVIEW, ExtractedForm,
 )
 
@@ -20,16 +20,15 @@ class Record:
     first_name: str = ""
     last_name: str = ""
     id_number: str = ""
-    central_number: str = ""      # כמה מספרים: מופרדים ברווח
+    central_numbers: list = field(default_factory=list)     # כל מספר בנפרד
     received_date: str = ""       # DD/MM/YYYY
     sending_entity: str = ""
-    commitment_number: str = ""   # כמה מספרים: מופרדים ברווח
+    commitment_numbers: list = field(default_factory=list)  # כל מספר בנפרד
     uncertain: set = field(default_factory=set)
     reasons: list = field(default_factory=list)
     pages: list = field(default_factory=list)
     model_flagged: bool = False
     source_name: str = ""
-    previews: list = field(default_factory=list)  # JPEG bytes (בזיכרון בלבד)
 
     # ---- עזרים ----
     def add_reason(self, reason: str) -> None:
@@ -52,12 +51,14 @@ class Record:
         return f"{self.source_name} (עמ' {_pages_label(self.pages)})"
 
     def to_row(self) -> dict:
+        """שורה לשמירה במסד. שדות הרשימה נשארים רשימות (TEXT[] במסד)."""
         return {
             "source_file": self.source_file,
-            **{f: getattr(self, f) for f in DATA_FIELDS},
-            "needs_review": int(self.needs_review),
+            **{f: (list(getattr(self, f)) if f in LIST_FIELDS else getattr(self, f))
+               for f in DATA_FIELDS},
+            "needs_review": self.needs_review,
             "review_reason": "; ".join(self.reasons),
-            "uncertain_fields": ",".join(sorted(self.uncertain)),
+            "uncertain_fields": sorted(self.uncertain),
             "status": STATUS_REVIEW if self.needs_review else STATUS_PENDING,
         }
 
@@ -74,15 +75,46 @@ def clean_text(value: str) -> str:
     return " ".join((value or "").split())
 
 
-def split_numbers(items) -> list[str]:
-    """מפצל לרשימת מספרים בודדים, בלי כפילויות ועם שמירת סדר."""
+# מפרידים מפורשים בין מספרים
+_EXPLICIT_SEP = re.compile(r"[,;|/\\\n]+")
+_STRIP_CHARS = ".-:*()[]\"'׳״ "
+_MIN_SPLIT_LEN = 4   # מתחת לזה, חלק מופרד ברווח/מקף נחשב לשבר של אותו מספר
+
+
+def split_numbers(items) -> tuple[list[str], list[str]]:
+    """מפצל לרשימת מספרים בודדים, בלי כפילויות ועם שמירת סדר.
+
+    מחזיר (מספרים, הערות). הכללים:
+    - פסיק, נקודה-פסיק, קו נטוי, | ושורה חדשה - תמיד מפרידים בין מספרים.
+    - רווח או מקף מפרידים רק אם כל החלקים ארוכים (4 תווים ומעלה), למשל
+      ״947768 947769״. אחרת זה מספר אחד שנקרא עם רווח (״94776 8״ -> ״947768״),
+      והמספר מסומן לבדיקה.
+    """
     out: list[str] = []
+    notes: list[str] = []
     for item in items or []:
-        for tok in re.split(r"[\s,;/|]+", str(item)):
-            tok = tok.strip(".-:*()[]\"'׳״")
-            if tok and tok not in out:
-                out.append(tok)
-    return out
+        for chunk in _EXPLICIT_SEP.split(str(item)):
+            chunk = chunk.strip(_STRIP_CHARS)
+            if not chunk:
+                continue
+            parts = [p.strip(_STRIP_CHARS) for p in re.split(r"[\s\-–]+", chunk)]
+            parts = [p for p in parts if p]
+            if len(parts) > 1 and all(len(p) >= _MIN_SPLIT_LEN for p in parts):
+                tokens = parts
+            elif len(parts) > 1:
+                tokens = ["".join(parts)]
+                notes.append(f"״{chunk}״ אוחד למספר אחד ({tokens[0]})")
+            else:
+                tokens = parts
+            for tok in tokens:
+                if tok not in out:
+                    out.append(tok)
+    return out, notes
+
+
+def join_numbers(values) -> str:
+    """רשימת מספרים -> טקסט לתצוגה (מופרד בפסיק)."""
+    return LIST_SEPARATOR.join(v for v in (values or []) if v)
 
 
 # ------------------------------------------------------------------ ת.ז.
@@ -149,6 +181,27 @@ def normalize_date(raw: str, today: date | None = None,
     return value, None
 
 
+# ------------------------------------------------------------------ מספר מרכזי
+def normalize_central(items, rec: Record, settings: Settings) -> list[str]:
+    tokens, notes = split_numbers(items)
+    for note in notes:
+        rec.flag("central_numbers", f"מספר מרכזי: {note}")
+    central: list[str] = []
+    for tok in tokens:
+        digits = re.sub(r"\D", "", tok)
+        if not digits:
+            rec.flag("central_numbers", f"מספר מרכזי לא תקין: ״{tok}״")
+            continue
+        if digits != tok:
+            rec.flag("central_numbers", f"המספר המרכזי ״{tok}״ כלל תווים שאינם ספרות")
+        n = settings.central_number_length
+        if n and len(digits) != n:
+            rec.flag("central_numbers", f"מספר מרכזי באורך חריג: {digits}")
+        if digits not in central:
+            central.append(digits)
+    return central
+
+
 # ------------------------------------------------------------------ נרמול טופס
 def normalize_form(form: ExtractedForm, page_no: int, entities: EntityList,
                    settings: Settings, today: date | None = None) -> Record:
@@ -174,26 +227,26 @@ def normalize_form(form: ExtractedForm, page_no: int, entities: EntityList,
         else:
             rec.flag("sending_entity", f"גורם שולח שאינו ברשימה: ״{raw_entity}״")
 
-    central: list[str] = []
-    for tok in split_numbers(form.central_numbers):
-        digits = re.sub(r"\D", "", tok)
-        if not digits:
-            rec.flag("central_number", f"מספר מרכזי לא תקין: ״{tok}״")
-            continue
-        if digits != tok:
-            rec.flag("central_number", f"המספר המרכזי ״{tok}״ כלל תווים שאינם ספרות")
-        n = settings.central_number_length
-        if n and len(digits) != n:
-            rec.flag("central_number", f"מספר מרכזי באורך חריג: {digits}")
-        if digits not in central:
-            central.append(digits)
-    rec.central_number = " ".join(central)
+    rec.central_numbers = normalize_central(form.central_numbers, rec, settings)
 
-    rec.commitment_number = " ".join(split_numbers(form.commitment_numbers))
+    commitments, notes = split_numbers(form.commitment_numbers)
+    for note in notes:
+        rec.flag("commitment_numbers", f"מספר התחייבות: {note}")
+    rec.commitment_numbers = commitments
+
+    # אותו מספר בשני שדות = המודל כנראה העביר מספר לשדה הלא נכון
+    id_core = rec.id_number.lstrip("0")
+    for num in rec.commitment_numbers:
+        if id_core and num.lstrip("0") == id_core:
+            rec.flag("commitment_numbers", f"מספר ההתחייבות {num} זהה לת.ז.")
+        if num in rec.central_numbers:
+            rec.flag("commitment_numbers", f"מספר ההתחייבות {num} זהה למספר המרכזי")
+    for num in rec.central_numbers:
+        if id_core and num.lstrip("0") == id_core:
+            rec.flag("central_numbers", f"המספר המרכזי {num} זהה לת.ז.")
 
     # סימוני אי-ודאות מהמודל
     for key in form.uncertain_fields or []:
-        key = MODEL_FIELD_ALIASES.get(key, key)
         if key in DATA_FIELDS:
             rec.uncertain.add(key)
     rec.model_flagged = bool(form.needs_review or form.uncertain_fields)
@@ -212,15 +265,17 @@ def merge_records(base: Record, extra: Record) -> Record:
             setattr(base, f, b)
         elif a and b and a != b:
             base.flag(f, f"סתירה בין עמודים ב{FIELD_LABELS[f]}: ״{a}״ / ״{b}״")
-    for f in ("central_number", "commitment_number"):
-        merged = split_numbers([getattr(base, f), getattr(extra, f)])
-        setattr(base, f, " ".join(merged))
+    for f in LIST_FIELDS:
+        merged = list(getattr(base, f))
+        for v in getattr(extra, f):
+            if v not in merged:
+                merged.append(v)
+        setattr(base, f, merged)
     base.uncertain |= extra.uncertain
     for r in extra.reasons:
         base.add_reason(r)
     base.model_flagged = base.model_flagged or extra.model_flagged
     base.pages = sorted(set(base.pages + extra.pages))
-    base.previews += extra.previews
     return base
 
 

@@ -1,0 +1,40 @@
+# הגדרת הפריסה ב-Render (Blueprint).
+# ב-Render: New -> Blueprint -> בוחרים את ה-repo. Render יוצר את שני השירותים מהקובץ הזה.
+# ערכים עם sync: false - Render יבקש מכן להקליד אותם בזמן היצירה (סודות לא נשמרים בקוד).
+# המסד נמצא ב-Supabase, ולכן אין כאן שירות מסד נתונים.
+
+services:
+  # ---------------------------------------------------------------- בקאנד (API)
+  - type: web
+    name: lab-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    # worker אחד בלבד: משימות העיבוד נשמרות בזיכרון של השרת
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: GEMINI_MODEL
+        value: Gemini 2.5 Pro      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL          # כתובת ה-Session pooler של Supabase
+        sync: false
+      - key: APP_USERNAME
+        value: lab
+      - key: APP_PASSWORD
+        sync: false
+
+  # ---------------------------------------------------------------- פרונטאנד (הממשק)
+  - type: web
+    name: lab-frontend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r frontend/requirements.txt
+    startCommand: cd frontend && streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: BACKEND_URL           # הכתובת של lab-backend, למשל https://lab-backend-xxxx.onrender.com
+        sync: false

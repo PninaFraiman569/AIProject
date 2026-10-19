@@ -107,6 +107,27 @@ def estimate_skew_angle(bgr: np.ndarray, max_angle: float = 12.0) -> float:
     return float(np.median(angles))
 
 
+def crop_margins(bgr: np.ndarray, pad_ratio: float = 0.02) -> np.ndarray:
+    """חותך שוליים לבנים סביב תוכן הטופס, עם מרווח ביטחון קטן.
+
+    שורה/עמודה נחשבת ״תוכן״ אם יש בה מספיק פיקסלים כהים (כדי שגרגירי סריקה בודדים
+    לא ימנעו את החיתוך). אם לא נמצא תוכן, או שהחיתוך זניח - מחזירים כמו שהוא.
+    """
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    dark = gray < 200
+    h, w = dark.shape
+    rows = np.where(dark.sum(axis=1) > w * 0.003)[0]
+    cols = np.where(dark.sum(axis=0) > h * 0.003)[0]
+    if rows.size == 0 or cols.size == 0:
+        return bgr
+    pad = int(max(h, w) * pad_ratio)
+    top, bottom = max(0, rows[0] - pad), min(h, rows[-1] + pad + 1)
+    left, right = max(0, cols[0] - pad), min(w, cols[-1] + pad + 1)
+    if (bottom - top) * (right - left) > 0.95 * h * w:
+        return bgr
+    return bgr[top:bottom, left:right]
+
+
 def _rotate(bgr: np.ndarray, angle: float) -> np.ndarray:
     h, w = bgr.shape[:2]
     m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
@@ -116,14 +137,15 @@ def _rotate(bgr: np.ndarray, angle: float) -> np.ndarray:
     )
 
 
-def preprocess(img: Image.Image, max_side: int = 2800,
+def preprocess(img: Image.Image, max_side: int = 2200,
                deskew: bool = True, enhance: bool = True) -> Image.Image:
-    """הקטנה (אם צריך), יישור הטיה קלה, ושיפור ניגודיות וחדות - בצבע.
+    """חיתוך שוליים, הקטנה (אם צריך), יישור הטיה קלה, ושיפור ניגודיות וחדות - בצבע.
 
     בכל כשל מחזירים את התמונה המקורית: עדיף תמונה לא מושלמת מאשר אין תמונה.
     """
     try:
         bgr = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2BGR)
+        bgr = crop_margins(bgr)
         h, w = bgr.shape[:2]
         scale = max_side / max(h, w)
         if scale < 1:

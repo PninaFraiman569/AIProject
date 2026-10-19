@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import date
 from typing import Callable
 
@@ -37,7 +38,7 @@ def process_upload(filename: str, data: bytes, extractor: FormExtractor,
 
     prepared = [preprocess(p, settings.max_image_side) for p in pages]
     jpegs = [to_jpeg(p, 90) for p in prepared]
-    previews = [to_jpeg(p, 80, max_side=1500) for p in prepared]
+    del pages, prepared  # תמונות הטפסים לא נשמרות - רק נשלחות לפענוח
 
     total = len(jpegs)
     records: list[Record] = []
@@ -50,7 +51,7 @@ def process_upload(filename: str, data: bytes, extractor: FormExtractor,
             form, error = fut.result()
 
             if form is None:  # חילוץ נכשל - שורה ריקה מסומנת, כדי שלא יאבד העמוד
-                rec = Record(pages=[page_no], source_name=filename, previews=[previews[idx]])
+                rec = Record(pages=[page_no], source_name=filename)
                 rec.model_flagged = True
                 rec.add_reason(f"החילוץ נכשל: {error}")
                 records.append(rec)
@@ -58,7 +59,6 @@ def process_upload(filename: str, data: bytes, extractor: FormExtractor,
             else:
                 rec = normalize_form(form, page_no, entities, settings, today)
                 rec.source_name = filename
-                rec.previews = [previews[idx]]
                 if form.is_continuation_page and previous is not None:
                     merge_records(previous, rec)
                 else:
@@ -71,4 +71,21 @@ def process_upload(filename: str, data: bytes, extractor: FormExtractor,
 
     for rec in records:
         finalize(rec, settings)
-    return records
+    return split_by_commitment(records)
+
+
+def split_by_commitment(records: list[Record]) -> list[Record]:
+    """כמה מספרי התחייבות בטופס אחד = כמה התחייבויות: רשומה נפרדת לכל מספר.
+
+    כל שאר הפרטים (שם, ת.ז., מספר מרכזי, תאריך, גורם שולח, סימוני בדיקה) זהים.
+    """
+    out: list[Record] = []
+    for rec in records:
+        if len(rec.commitment_numbers) <= 1:
+            out.append(rec)
+            continue
+        for num in rec.commitment_numbers:
+            copy = deepcopy(rec)
+            copy.commitment_numbers = [num]
+            out.append(copy)
+    return out

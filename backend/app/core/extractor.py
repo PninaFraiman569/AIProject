@@ -40,11 +40,12 @@ class GeminiExtractor:
 
     def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ExtractedForm:
         types = self._types
+        # בלי temperature: במודלי Gemini 3 Google ממליצה להשאיר את ברירת המחדל,
+        # וערך נמוך עלול לפגוע באיכות הקריאה
         config = types.GenerateContentConfig(
             system_instruction=self._system_prompt,
             response_mime_type="application/json",
             response_schema=ExtractedForm,
-            temperature=0.0,
         )
         last_error: Exception | None = None
         for attempt in range(self._retries):
@@ -89,4 +90,6 @@ def _friendly(exc: Exception | None) -> str:
         )
     if code == 404:
         return "המודל שהוגדר לא נמצא (בדקי GEMINI_MODEL)"
+    if code == 503:
+        return "מודל Gemini עמוס כרגע (503). נסי שוב בעוד כמה דקות."
     return f"הפיענוח נכשל ({type(exc).__name__ if exc else 'שגיאה לא ידועה'})"

@@ -1,11 +1,9 @@
-"""עיצוב הממשק: RTL, גופן, וצבעים.
-
-פלטה: דיו כחול-כהה (טקסט וכותרות), קיר בהיר, טורקיז מעבדתי כצבע פעולה,
-וענבר אחד בלבד - לכל מה שדורש בדיקה אנושית. הענבר הוא האלמנט הבולט בעיצוב.
-"""
-
-CSS = """
-<style>
+/* עיצוב הממשק: RTL, גופן וצבעים (אותו עיצוב כמו בפרויקט הקודם).
+ *
+ * פלטה: דיו כחול-כהה (טקסט וכותרות), קיר בהיר, טורקיז מעבדתי כצבע פעולה,
+ * וענבר אחד בלבד - לכל מה שדורש בדיקה אנושית. הענבר הוא האלמנט הבולט בעיצוב.
+ * הקובץ נטען ע"י app.py - משנים כאן בלי לגעת בקוד.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap');
 
 :root {
@@ -78,8 +76,17 @@ h2, h3 { color: var(--ink); font-weight: 700; letter-spacing: 0; }
 .legend { color: var(--muted); font-size: .9rem; margin: .2rem 0 .7rem; }
 .legend .sw { display: inline-block; width: .9rem; height: .9rem; border-radius: 3px;
               vertical-align: -2px; margin-inline-start: .35rem; }
-.sw.cell { background: #FDBA74; } .sw.row { background: #FFF7E6; border: 1px solid #F3D9A4; }
+.sw.cell { background: #FFD60A; box-shadow: inset 0 0 0 2px #FF9500; } .sw.row { background: #FFF176; border: 1px solid #E6D200; }
 
 @media (max-width: 640px) { .app-title { font-size: 1.6rem; } }
-</style>
-"""
+
+/* מסך כניסה */
+.login-wrap { max-width: 420px; margin: 8vh auto 0; }
+.login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+              padding: 1.6rem 1.6rem .4rem; box-shadow: 0 6px 24px rgba(20, 33, 61, .06); }
+.login-card .app-title { font-size: 1.7rem; }
+.login-card .app-sub { margin-bottom: .6rem; }
+[data-testid="stForm"] { border: none; padding: 0; }
+
+/* שורת משתמשת מחוברת */
+.userbar { color: var(--muted); font-size: .9rem; text-align: left; padding-top: .6rem; }

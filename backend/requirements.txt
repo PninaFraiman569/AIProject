@@ -1,0 +1,17 @@
+# שרת
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+# מסד נתונים (PostgreSQL / Supabase)
+psycopg[binary]>=3.2
+psycopg-pool>=3.2
+# פענוח (כמו בפרויקט הקודם)
+google-genai>=1.0
+pydantic>=2.5
+PyMuPDF>=1.24,<1.27   # 2.0 קורס בייבוא על Windows
+opencv-python-headless>=4.9
+Pillow>=10.0
+pillow-heif>=0.16
+numpy>=1.26
+openpyxl>=3.1
+python-dotenv>=1.0

@@ -8,13 +8,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .schemas import DATA_FIELDS, FIELD_LABELS, STATUS_APPROVED
+from .schemas import DATA_FIELDS, FIELD_LABELS, LIST_FIELDS, LIST_SEPARATOR, STATUS_APPROVED
 
 _HEADER_FILL = PatternFill("solid", fgColor="14213D")
 _REVIEW_FILL = PatternFill("solid", fgColor="FFE8C2")
 _THIN = Side(style="thin", color="D5DAE1")
-_TEXT_FIELDS = {"first_name", "last_name", "id_number", "central_number",
-                "sending_entity", "commitment_number"}
 
 
 def build_workbook(rows: list[dict], include_source: bool = False,
@@ -22,7 +20,8 @@ def build_workbook(rows: list[dict], include_source: bool = False,
     """בונה קובץ אקסל בזיכרון ומחזיר את הבתים שלו.
 
     ת.ז. ומספרים נשמרים כטקסט (כדי לשמור אפסים מובילים ולהימנע מכתיב מדעי),
-    תאריכים נשמרים כתאריכי אקסל אמיתיים.
+    תאריכים נשמרים כתאריכי אקסל אמיתיים. כמה מספרים מרכזיים / מספרי התחייבות
+    נכתבים באותו תא, מופרדים בפסיק (״947768, 947769״).
     """
     wb = Workbook()
     ws = wb.active
@@ -45,6 +44,8 @@ def build_workbook(rows: list[dict], include_source: bool = False,
     for r_idx, row in enumerate(rows, start=2):
         for c_idx, f in enumerate(DATA_FIELDS, start=1):
             value = row.get(f, "") or ""
+            if f in LIST_FIELDS:
+                value = LIST_SEPARATOR.join(value) if isinstance(value, (list, tuple)) else str(value)
             cell = ws.cell(row=r_idx, column=c_idx)
             if f == "received_date":
                 try:
