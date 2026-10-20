@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from st_aggrid import AgGrid, JsCode
 
 from api_client import Api, ApiError, AuthExpired
@@ -38,6 +39,24 @@ def load_css() -> str:
 
 
 st.markdown(f"<style>{load_css()}</style>", unsafe_allow_html=True)
+
+# Streamlit מסמן את הדף כאנגלית, ולכן Chrome מציע לתרגם אותו. התרגום משנה את
+# מבנה הדף ו-Streamlit קורס (NotFoundError: removeChild). מסמנים: עברית, בלי תרגום.
+components.html(
+    """<script>
+    const root = window.parent.document.documentElement;
+    root.setAttribute("lang", "he");
+    root.setAttribute("translate", "no");
+    root.classList.add("notranslate");
+    const head = window.parent.document.head;
+    if (!head.querySelector('meta[name="google"]')) {
+      const m = window.parent.document.createElement("meta");
+      m.name = "google"; m.content = "notranslate";
+      head.appendChild(m);
+    }
+    </script>""",
+    height=0,
+)
 
 st.session_state.setdefault("token", None)
 st.session_state.setdefault("uploader_ver", 0)
