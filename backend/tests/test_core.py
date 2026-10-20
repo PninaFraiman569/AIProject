@@ -167,3 +167,39 @@ def test_deskew_estimates_angle():
 def test_pdf_page_limit():
     with pytest.raises(UnsupportedFile):
         load_pages(make_pdf(3), 1.0, 2)
+
+
+# ---------- עריכה: כמה מספרי התחייבות בתא אחד -> שורה לכל מספר
+class _FakeRepo:
+    def __init__(self, row):
+        self.rows = {row["id"]: dict(row)}
+
+    def get(self, rid):
+        return dict(self.rows[rid]) if rid in self.rows else None
+
+    def update(self, rid, values):
+        self.rows[rid].update(values)
+
+    def insert_many(self, rows):
+        ids = []
+        for r in rows:
+            rid = max(self.rows) + 1
+            self.rows[rid] = {**r, "id": rid}
+            ids.append(rid)
+        return ids
+
+
+def test_edit_with_several_commitments_creates_row_per_number():
+    from app.records import apply_edit
+    repo = _FakeRepo({"id": 1, "source_file": "f.pdf", "first_name": "דנה", "last_name": "כהן",
+                      "id_number": "011223344", "central_numbers": ["947768", "947769"],
+                      "received_date": "25/08/2026", "sending_entity": "לאומית",
+                      "commitment_numbers": [], "needs_review": True, "review_reason": "",
+                      "uncertain_fields": ["commitment_numbers"], "status": "ממתין לבדיקה"})
+    apply_edit(repo, 1, {"commitment_numbers": "2646, 2647, 2648"}, ENT, S)
+    rows = sorted(repo.rows.values(), key=lambda r: r["id"])
+    assert [r["commitment_numbers"] for r in rows] == [["2646"], ["2647"], ["2648"]]
+    for r in rows:   # כל שאר הפרטים זהים, והמספרים המרכזיים נשארים יחד
+        assert r["first_name"] == "דנה" and r["id_number"] == "011223344"
+        assert r["central_numbers"] == ["947768", "947769"]
+        assert r["status"] == "אושר"

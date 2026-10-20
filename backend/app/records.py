@@ -62,10 +62,20 @@ def apply_edit(repo: Repository, record_id: int, changes: dict,
     if not values:
         return row
 
+    # כל מספר התחייבות = התחייבות נפרדת: הוקלדו כמה מספרים -> השורה מקבלת את
+    # הראשון, ולכל מספר נוסף נוצרת שורה חדשה עם אותם פרטים בדיוק
+    extra_commitments = []
+    if len(values.get("commitment_numbers", [])) > 1:
+        first, *extra_commitments = values["commitment_numbers"]
+        values["commitment_numbers"] = [first]
+
     uncertain = [f for f in row["uncertain_fields"] if f not in values]
     values["uncertain_fields"] = uncertain
     had_orange = bool(row["uncertain_fields"])
     if had_orange and not uncertain:
         values.update(status=STATUS_APPROVED, needs_review=False)
     repo.update(record_id, values)
-    return repo.get(record_id)
+    updated = repo.get(record_id)
+    if extra_commitments:
+        repo.insert_many([{**updated, "commitment_numbers": [n]} for n in extra_commitments])
+    return updated

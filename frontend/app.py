@@ -167,21 +167,38 @@ def rows_to_df(rows: list[dict]) -> pd.DataFrame:
     return df
 
 
+# גובה הטבלה: עד 50 שורות מוצגות במלואן (בלי גלילה לאורך); מעל זה - גלילה
+ROW_HEIGHT = 38          # כסנטימטר
+HEADER_HEIGHT = 42
+MAX_ROWS_WITHOUT_SCROLL = 50
+H_SCROLLBAR = 20         # מקום לפס הגלילה לרוחב
+
+
+def grid_height(n_rows: int) -> int:
+    return HEADER_HEIGHT + ROW_HEIGHT * min(n_rows, MAX_ROWS_WITHOUT_SCROLL) + H_SCROLLBAR + 4
+
+
 def grid_options(entities: list[str]) -> dict:
     data_cols = []
     for f in DATA_FIELDS:
         col = {"field": f, "headerName": FIELD_LABELS[f], "editable": True,
-               "cellStyle": UNSURE_CELL_STYLE, "minWidth": 110}
+               "cellStyle": UNSURE_CELL_STYLE, "width": 130}
         if f == "sending_entity":
             col.update(cellEditor="agSelectCellEditor",
-                       cellEditorParams={"values": ["", *entities]}, minWidth=150)
+                       cellEditorParams={"values": ["", *entities]}, width=170)
+        if f in LIST_FIELDS or f == "id_number":
+            col["width"] = 150
         if f in LIST_FIELDS:
-            col["headerTooltip"] = "כמה מספרים - מופרדים בפסיק"
+            col["headerTooltip"] = ("מספר אחד בכל שורה. כמה מספרים מופרדים בפסיק יוצרים שורה נפרדת לכל מספר"
+                                    if f == "commitment_numbers" else "כמה מספרים - מופרדים בפסיק")
         if f == "received_date":
             col["headerTooltip"] = "DD/MM/YYYY"
         data_cols.append(col)
     return {
         "enableRtl": True,                  # עמודה ראשונה מימין
+        "rowHeight": ROW_HEIGHT,
+        "headerHeight": HEADER_HEIGHT,
+        "tooltipShowDelay": 300,
         "singleClickEdit": True,
         "stopEditingWhenCellsLoseFocus": True,
         "defaultColDef": {"resizable": True, "sortable": True, "filter": False},
@@ -192,9 +209,12 @@ def grid_options(entities: list[str]) -> dict:
             *data_cols,
             {"field": "approved", "headerName": "אושר", "editable": True,
              "cellDataType": "boolean", "width": 80},
+            # הערות בשורה אחת (בלי שבירת שורות); טקסט ארוך - גלילה לרוחב, והטקסט
+            # המלא מופיע גם כשמרחפים מעל התא
             {"field": "notes", "headerName": "הערות", "editable": False,
-             "wrapText": True, "autoHeight": True, "minWidth": 260, "flex": 1},
-            {"field": "source_file", "headerName": "קובץ מקור", "editable": False},
+             "width": 560, "tooltipField": "notes"},
+            {"field": "source_file", "headerName": "קובץ מקור", "editable": False,
+             "width": 260, "tooltipField": "source_file"},
             {"field": "delete", "headerName": "מחיקה", "editable": True,
              "cellDataType": "boolean", "width": 80},
         ],
@@ -327,7 +347,8 @@ def review_section(api: Api, cfg: dict) -> None:
         '<div class="legend"><span class="sw cell"></span>שדה שהמנוע לא בטוח בו - '
         'יש לבדוק ולוודא את תקינותו. מה שלא חולץ מופיע בעמודת ״הערות״. '
         'תיקון התא מוריד ממנו את הסימון; השורה מאושרת כשמסמנים ״אושר״ '
-        'או כשאין בה יותר שדות מסומנים. כמה מספרים מרכזיים - מפרידים בפסיק.</div>',
+        'או כשאין בה יותר שדות מסומנים. כמה מספרים מרכזיים - מפרידים בפסיק. '
+        'כל מספר התחייבות הוא שורה נפרדת: הקלדת כמה מספרים עם פסיק יוצרת שורה לכל מספר.</div>',
         unsafe_allow_html=True,
     )
     df = rows_to_df(rows)
@@ -342,7 +363,7 @@ def review_section(api: Api, cfg: dict) -> None:
     response = AgGrid(
         df[GRID_COLUMNS].reset_index(drop=True),
         gridOptions=grid_options(cfg["entities"]),
-        height=min(620, 90 + 48 * len(df)),
+        height=grid_height(len(df)),
         allow_unsafe_jscode=True,          # נדרש לצביעת התאים (UNSURE_CELL_STYLE)
         update_on=["cellValueChanged"],
         data_return_mode="AS_INPUT",
