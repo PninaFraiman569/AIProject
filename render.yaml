@@ -17,7 +17,8 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.8
       - key: GEMINI_MODEL
-        value: Gemini 2.5 Pro      - key: GEMINI_API_KEY
+        value: gemini-3.8-flash
+      - key: GEMINI_API_KEY
         sync: false
       - key: DATABASE_URL          # כתובת ה-Session pooler של Supabase
         sync: false

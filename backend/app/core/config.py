@@ -20,7 +20,7 @@ try:  # טעינת קובץ .env מקומי, אם קיים (ב-Render לא קי�
 except Exception:  # pragma: no cover
     pass
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 
 def _read(name: str, default: str = "") -> str:

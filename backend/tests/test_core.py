@@ -15,8 +15,8 @@ from app.core.validation import normalize_date, normalize_id, normalize_form, sp
 from conftest import ENT, S, TODAY, FakeExtractor, form, make_pdf
 
 
-def test_default_model_is_gemini_25_flash():
-    assert DEFAULT_MODEL == "gemini-2.5-flash"
+def test_default_model_is_gemini_38_flash():
+    assert DEFAULT_MODEL == "gemini-3.8-flash"
 
 
 # ---------- ת.ז. ותאריכים
