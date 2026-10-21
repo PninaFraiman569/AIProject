@@ -61,7 +61,7 @@ class Services:
     def _gemini_factory(self) -> Callable[[], FormExtractor]:
         @lru_cache(maxsize=1)
         def factory() -> FormExtractor:
-            return GeminiExtractor(self.settings, self.entities.names)
+            return GeminiExtractor(self.settings, self.entities.prompt_names)
         return factory
 
 

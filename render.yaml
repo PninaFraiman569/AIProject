@@ -18,6 +18,8 @@ services:
         value: 3.12.8
       - key: GEMINI_MODEL
         value: gemini-3.8-flash
+      - key: GEMINI_THINKING_LEVEL     # low = מהיר, medium = מאוזן, high = איטי מאוד
+        value: medium
       - key: GEMINI_API_KEY
         sync: false
       - key: DATABASE_URL          # כתובת ה-Session pooler של Supabase

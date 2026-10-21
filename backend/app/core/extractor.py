@@ -36,6 +36,7 @@ class GeminiExtractor:
         self._client = genai.Client(api_key=settings.gemini_api_key)
         self._model = settings.gemini_model
         self._retries = max(1, settings.max_retries)
+        self._thinking_level = settings.gemini_thinking_level
         self._system_prompt = build_system_prompt(entity_names)
 
     def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ExtractedForm:
@@ -46,6 +47,13 @@ class GeminiExtractor:
             system_instruction=self._system_prompt,
             response_mime_type="application/json",
             response_schema=ExtractedForm,
+            # רזולוציה גבוהה: בלי הקטנה של התמונה בצד של Gemini - חשוב לכתב יד קטן
+            media_resolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,
+            # פחות ״חשיבה״ = תשובה מהירה יותר (במודלים שחושבים הרבה, כמו 3.8 Flash)
+            thinking_config=(
+                types.ThinkingConfig(thinking_level=self._thinking_level.upper())
+                if self._thinking_level else None
+            ),
         )
         last_error: Exception | None = None
         for attempt in range(self._retries):

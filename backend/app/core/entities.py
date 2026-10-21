@@ -32,8 +32,9 @@ def _norm(text: str) -> str:
 class EntityList:
     """רשימת גורמים שולחים: שם קנוני + כינויים."""
 
-    def __init__(self, entries: dict[str, list[str]]):
+    def __init__(self, entries: dict[str, list[str]], notes: dict[str, str] | None = None):
         self._entries = entries
+        self._notes = notes or {}  # הערות למודל (למשל: שם דומה שאסור להתבלבל איתו)
         self._index: list[tuple[str, str]] = []  # (כינוי מנורמל, שם קנוני)
         for canonical, aliases in entries.items():
             for alias in [canonical, *aliases]:
@@ -44,22 +45,34 @@ class EntityList:
     @classmethod
     def from_file(cls, path: str | Path) -> "EntityList":
         entries: dict[str, list[str]] = {}
+        notes: dict[str, str] = {}
         for line in Path(path).read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
+            line, _, note = line.partition("##")
             parts = [p.strip() for p in line.split("|") if p.strip()]
             if parts:
                 entries[parts[0]] = parts[1:]
-        return cls(entries)
+                if note.strip():
+                    notes[parts[0]] = note.strip()
+        return cls(entries, notes)
 
     @property
     def names(self) -> list[str]:
         return list(self._entries.keys())
 
+    @property
+    def prompt_names(self) -> list[str]:
+        """השמות כפי שהמודל רואה אותם בפרומפט - עם ההערה, אם יש."""
+        return [f"{n} (שים לב: {self._notes[n]})" if n in self._notes else n
+                for n in self._entries]
+
     def match(self, text: str) -> str | None:
         """מחזיר את השם הקנוני התואם, או None אם אין התאמה מספיק טובה."""
-        n = _norm(text or "")
+        # אם המודל העתיק גם את ההערה שליד השם - מורידים אותה (היא מזכירה שם של גורם אחר)
+        text = (text or "").split("(שים לב:")[0]
+        n = _norm(text)
         if not n:
             return None
         # 1. התאמה מדויקת

@@ -55,6 +55,8 @@ class Settings:
     central_number_length: int  # 0 = ללא בדיקת אורך
     check_id_checksum: bool
     date_max_age_days: int
+    # רמת ה״חשיבה״ של Gemini לפני התשובה: minimal / low / medium / high. ריק = ברירת המחדל של המודל
+    gemini_thinking_level: str = ""
 
 
 @lru_cache(maxsize=1)
@@ -67,6 +69,7 @@ def get_settings() -> Settings:
     return Settings(
         gemini_api_key=_read("GEMINI_API_KEY") or _read("GOOGLE_API_KEY"),
         gemini_model=_read("GEMINI_MODEL", DEFAULT_MODEL),
+        gemini_thinking_level=_read("GEMINI_THINKING_LEVEL").lower(),
         database_url=_read("DATABASE_URL"),
         app_username=_read("APP_USERNAME", "lab"),
         app_password=_read("APP_PASSWORD"),
