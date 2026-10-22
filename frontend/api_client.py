@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
 from pathlib import Path
 
 import requests
@@ -18,6 +20,20 @@ except Exception:  # pragma: no cover
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 TIMEOUT = 90  # בתוכנית החינמית של Render השרת "מתעורר" בפנייה הראשונה, וזה לוקח זמן
+# בזמן שהבקאנד מתעורר Render מחזיר 502/503/504 - הבקשה לא הגיעה לשרת, אז בטוח לנסות שוב
+WAKING_STATUSES = {502, 503, 504}
+WAKE_WAIT = 150  # כמה שניות לכל היותר לחכות שהבקאנד יתעורר
+RETRY_EVERY = 5
+
+
+def wake_backend() -> None:
+    """שולח לבקאנד בקשה ברקע כדי שיתחיל להתעורר עוד לפני שלוחצים 'כניסה'."""
+    def ping():
+        try:
+            requests.get(f"{BACKEND_URL}/api/health", timeout=TIMEOUT)
+        except requests.RequestException:
+            pass
+    threading.Thread(target=ping, daemon=True).start()
 
 
 class ApiError(Exception):
@@ -41,11 +57,24 @@ class Api:
         headers = kw.pop("headers", {})
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
-        try:
-            r = requests.request(method, f"{BACKEND_URL}{path}", headers=headers,
-                                 timeout=kw.pop("timeout", TIMEOUT), **kw)
-        except requests.RequestException:
+        timeout = kw.pop("timeout", TIMEOUT)
+        deadline = time.monotonic() + WAKE_WAIT
+        while True:
+            try:
+                r = requests.request(method, f"{BACKEND_URL}{path}", headers=headers,
+                                     timeout=timeout, **kw)
+            except requests.ConnectionError:
+                r = None
+            except requests.RequestException:
+                raise ApiError("אין חיבור לשרת. נסי שוב בעוד רגע.")
+            if (r is not None and r.status_code not in WAKING_STATUSES) \
+                    or time.monotonic() >= deadline:
+                break
+            time.sleep(RETRY_EVERY)
+        if r is None:
             raise ApiError("אין חיבור לשרת. נסי שוב בעוד רגע.")
+        if r.status_code in WAKING_STATUSES:
+            raise ApiError("השרת עדיין מתעורר. נסי שוב בעוד דקה.", r.status_code)
         if r.status_code == 401 and path != "/api/auth/login":
             raise AuthExpired("ההתחברות פגה. יש להיכנס מחדש.", 401)
         if r.status_code >= 400:

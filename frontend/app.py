@@ -14,7 +14,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from st_aggrid import AgGrid, JsCode
 
-from api_client import Api, ApiError, AuthExpired
+from api_client import Api, ApiError, AuthExpired, wake_backend
 
 st.set_page_config(page_title="חילוץ טפסי התחייבות", page_icon="🧪", layout="wide")
 
@@ -77,6 +77,9 @@ def show_flash() -> None:
 
 # ================================================================== כניסה
 def login_screen() -> None:
+    if not st.session_state.get("backend_woken"):
+        wake_backend()  # מעיר את הבקאנד בזמן שמקלידים שם משתמש וסיסמה
+        st.session_state.backend_woken = True
     _, mid, _ = st.columns([1, 1.4, 1])
     with mid:
         st.markdown(
@@ -94,7 +97,7 @@ def login_screen() -> None:
         if submitted:
             api = Api()
             try:
-                with st.spinner("מתחבר…"):
+                with st.spinner("מתחבר… אם המערכת לא הייתה בשימוש זמן מה, זה יכול לקחת עד דקה"):
                     st.session_state.token = api.login(username, password)
                 st.rerun()
             except ApiError as exc:
