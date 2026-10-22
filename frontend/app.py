@@ -16,7 +16,8 @@ from st_aggrid import AgGrid, JsCode
 
 from api_client import Api, ApiError, AuthExpired, wake_backend
 
-st.set_page_config(page_title="חילוץ טפסי התחייבות", page_icon="🧪", layout="wide")
+LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
+st.set_page_config(page_title="חילוץ טפסי התחייבות", page_icon=str(LOGO_PATH), layout="wide")
 
 STYLE_PATH = Path(__file__).parent / "styles" / "style.css"
 
